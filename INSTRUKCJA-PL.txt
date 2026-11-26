@@ -1,0 +1,82 @@
+ENERGIA — WIZJER POLA V2
+========================
+
+CO JEST W PACZCE
+----------------
+index.html              Główna aplikacja (cała grafika i logika)
+manifest.webmanifest    Ustawienia dodania strony do ekranu głównego iPhone'a
+sw.js                   Cache aplikacji, aby strona mogła otwierać się po pierwszym załadowaniu
+icons/                  Ikony aplikacji
+
+WAŻNE O DZIAŁANIU
+-----------------
+To wizualna symulacja koncepcji energii, a nie prawdziwy skaner. Aparat jest
+wyłącznie tłem. Kod nie analizuje obrazu, nie rozpoznaje pomieszczenia i nie
+wysyła obrazu z kamery na serwer. Proporcje są ręczne lub losowane i zawsze
+sumują się do 100%. Paralaksa jest tylko lekkim przesunięciem grafiki na bazie
+czujników ruchu, nie pełnym AR ani śledzeniem powierzchni.
+
+PUBLIKACJA ZA DARMO PRZEZ GITHUB PAGES
+--------------------------------------
+Potrzebujesz konta GitHub i przeglądarki. Nie musisz instalować Gita ani
+programować w terminalu. Repozytorium będzie publiczne, więc jego pliki będą
+widoczne dla innych.
+
+1. Wejdź na https://github.com/ i zaloguj się lub utwórz konto.
+2. Rozpakuj plik ZIP na komputerze. Otwórz folder energia_wizjer_v2.
+3. Na GitHub kliknij znak + w prawym górnym rogu, a potem "New repository".
+4. W polu Repository name wpisz np. energia-wizjer.
+5. Zaznacz "Public". Możesz zaznaczyć "Add a README file". Kliknij "Create repository".
+6. W nowym repozytorium wybierz "Add file" → "Upload files".
+7. Otwórz rozpakowany folder energia_wizjer_v2 i przeciągnij DO GŁÓWNEGO OKNA
+   przesyłania jego ZAWARTOŚĆ: index.html, manifest.webmanifest, sw.js oraz
+   folder icons. Nie wrzucaj całego folderu jako dodatkowego poziomu.
+8. Na dole strony kliknij "Commit changes".
+9. W repozytorium otwórz zakładkę "Settings".
+10. W menu po lewej znajdź "Pages".
+11. W sekcji "Build and deployment" ustaw:
+      Source: Deploy from a branch
+      Branch: main
+      Folder: /(root)
+    Kliknij "Save".
+12. Po zakończeniu publikacji w ustawieniach Pages pojawi się adres strony.
+    Dla nazwy repozytorium energia-wizjer będzie to zwykle:
+      https://TWOJ_LOGIN.github.io/energia-wizjer/
+    Zamiast TWOJ_LOGIN wpisz swoją nazwę użytkownika GitHub.
+13. Otwórz ten adres na iPhonie 13 w Safari. Poczekaj, aż strona się wczyta.
+14. Kliknij "URUCHOM APARAT" i wybierz "Pozwól", gdy Safari zapyta o dostęp do kamery.
+    Aplikacja prosi tylko o obraz z kamery; nie prosi o mikrofon.
+
+DODANIE NA EKRAN GŁÓWNY IPHONE'A
+--------------------------------
+1. Otwórz opublikowaną stronę w Safari (nie w przeglądarce wewnątrz innej aplikacji).
+2. Kliknij przycisk Udostępnij (kwadrat ze strzałką w górę).
+3. Przewiń listę i wybierz "Dodaj do ekranu początkowego".
+4. Nazwij skrót np. "Energia" i kliknij "Dodaj".
+5. Ikona pojawi się na ekranie głównym. Otwieraj ją jak aplikację.
+
+KAMERA NIE DZIAŁA?
+------------------
+- Strona musi być otwarta przez HTTPS. GitHub Pages zapewnia bezpieczny adres.
+- Użyj Safari iOS, a nie starego podglądu w komunikatorze.
+- Gdy wcześniej odmówiono dostępu, sprawdź ustawienia witryny / uprawnienia aparatu
+  w Safari i załaduj stronę ponownie.
+- Sprawdź, czy aparat nie jest w tym samym czasie zajęty przez inną aplikację.
+- Przycisk "ZOBACZ TRYB DEMO" pozwala używać wizualizacji bez aparatu.
+
+JAK ZAKTUALIZOWAĆ STRONĘ
+------------------------
+1. Wprowadź zmiany w plikach na komputerze.
+2. W repozytorium GitHub wybierz "Add file" → "Upload files" i wgraj zmienione pliki.
+3. Kliknij "Commit changes". GitHub Pages opublikuje nową wersję.
+4. Jeśli iPhone pokazuje starą wersję, zamknij stronę i otwórz ją ponownie.
+   Cache aplikacji ma nazwę energia-wizjer-v2-cache-1. Po większej aktualizacji
+   można zmienić końcówkę numeru w sw.js (np. na cache-2), aby wymusić nowy cache.
+
+PRYWATNOŚĆ I OGRANICZENIA
+------------------------
+- GitHub Pages publikuje stronę publicznie. Nie umieszczaj w repozytorium haseł,
+  prywatnych zdjęć, tokenów ani innych poufnych danych.
+- Kamera uruchamia się dopiero po naciśnięciu przycisku i zgodzie użytkownika.
+- Kod nie zawiera funkcji nagrywania, zapisywania ani wysyłania obrazu z kamery.
+- To nie jest rzeczywisty detektor energii ani narzędzie naukowe.

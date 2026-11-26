@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#07100f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Energia">
+  <meta name="description" content="Wizualny symulator pola energii — eksperymentalna, fikcyjna wizualizacja.">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="apple-touch-icon" href="./icons/icon-192.png">
+  <title>ENERGIA — Wizjer pola</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #f1f7f4;
+      --muted: rgba(226,239,233,.62);
+      --glass: rgba(5,13,13,.57);
+      --glass-strong: rgba(5,12,12,.82);
+      --line: rgba(221,255,238,.15);
+      --green: #79e7aa;
+      --red: #f0787a;
+      --gray: #c7d1d4;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin:0; width:100%; height:100%; overflow:hidden; background:#07100f; color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif; }
+    body { -webkit-font-smoothing:antialiased; user-select:none; -webkit-user-select:none; }
+    button { font:inherit; color:inherit; -webkit-tap-highlight-color:transparent; cursor:pointer; }
+    #scene { position:fixed; inset:0; overflow:hidden; background:
+      radial-gradient(ellipse at 18% 28%, rgba(58,100,81,.35), transparent 42%),
+      radial-gradient(ellipse at 78% 75%, rgba(80,94,86,.22), transparent 46%),
+      linear-gradient(145deg,#17231f 0%,#0b1412 45%,#070c0d 100%); }
+    #camera { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; opacity:0; transition:opacity .9s ease; filter:saturate(.82) contrast(1.06) brightness(.82); }
+    #camera.live { opacity:1; }
+    #clouds { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+    .room-grain { position:absolute; inset:0; pointer-events:none; opacity:.12; background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.92' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.26'/%3E%3C/svg%3E"); mix-blend-mode:soft-light; }
+    .shade { position:absolute; inset:0; pointer-events:none; background:linear-gradient(180deg,rgba(0,5,5,.48),transparent 23%,transparent 58%,rgba(0,4,5,.60)); }
+    .top { position:absolute; z-index:4; top:calc(var(--safe-top) + 13px); left:15px; right:15px; display:flex; justify-content:space-between; align-items:center; gap:12px; }
+    .brand { display:flex; align-items:center; gap:10px; min-width:0; }
+    .brand-mark { width:35px; height:35px; border-radius:50%; flex:0 0 35px; position:relative; background:radial-gradient(circle at 34% 29%,#ddffeb 0%,#8fe9b4 16%,#30865f 42%,#123e34 72%,#091a18 100%); box-shadow:0 0 25px rgba(103,229,157,.26),inset 0 0 10px rgba(255,255,255,.22); }
+    .brand-mark:after { content:""; position:absolute; inset:-5px; border:1px solid rgba(166,255,204,.26); border-radius:50%; transform:rotate(-28deg) scaleX(.72); }
+    .brand-name { font-size:12px; font-weight:760; letter-spacing:.22em; line-height:1; }
+    .brand-sub { margin-top:5px; color:var(--muted); font-size:9px; letter-spacing:.19em; }
+    .status { display:flex; align-items:center; gap:7px; padding:8px 11px; border:1px solid var(--line); border-radius:99px; background:var(--glass); backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px); font-size:9px; letter-spacing:.12em; color:rgba(239,249,244,.82); white-space:nowrap; }
+    .status-dot { width:6px;height:6px;border-radius:50%;background:#7be4aa;box-shadow:0 0 10px #7be4aa; }
+    .side-readout { position:absolute; z-index:3; top:50%; left:14px; transform:translateY(-50%); display:flex; flex-direction:column; gap:9px; pointer-events:none; }
+    .readout-item { display:grid; grid-template-columns:6px auto; gap:8px; align-items:center; padding:8px 10px; min-width:89px; border:1px solid rgba(240,255,247,.12); border-radius:12px; background:rgba(4,10,10,.38); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); box-shadow:0 8px 24px rgba(0,0,0,.12); }
+    .readout-dot { width:6px;height:6px;border-radius:50%; }
+    .readout-label { color:rgba(236,247,241,.62); font-size:8px; letter-spacing:.12em; }
+    .readout-value { font-size:13px; font-weight:650; font-variant-numeric:tabular-nums; margin-top:2px; }
+    .scanline { position:absolute; z-index:2; top:-15%; left:0; width:100%; height:2px; opacity:0; pointer-events:none; background:linear-gradient(90deg,transparent,rgba(170,255,207,.8),transparent); box-shadow:0 0 22px 6px rgba(100,237,159,.24); }
+    .scanline.run { animation:scan 1.5s ease-in-out; }
+    @keyframes scan { 0%{top:-5%;opacity:0} 12%{opacity:.75} 85%{opacity:.45} 100%{top:105%;opacity:0} }
+    .bottom { position:absolute; z-index:5; left:12px; right:12px; bottom:calc(var(--safe-bottom) + 12px); display:flex; flex-direction:column; gap:10px; }
+    .mixbar { width:100%; height:4px; display:flex; overflow:hidden; border-radius:99px; gap:2px; background:rgba(255,255,255,.08); box-shadow:0 0 18px rgba(0,0,0,.2); }
+    .mix-seg { height:100%; transition:width .6s ease; }
+    .dock { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:9px; border:1px solid rgba(230,255,241,.15); border-radius:21px; background:rgba(4,11,11,.72); backdrop-filter:blur(25px) saturate(1.35); -webkit-backdrop-filter:blur(25px) saturate(1.35); box-shadow:0 18px 50px rgba(0,0,0,.30); }
+    .dock-group { display:flex; align-items:center; gap:7px; }
+    .tool { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; min-width:55px; min-height:53px; padding:6px 8px; border:1px solid transparent; border-radius:14px; background:transparent; color:rgba(238,248,242,.79); font-size:9px; letter-spacing:.04em; }
+    .tool:active,.tool.active { background:rgba(155,237,187,.10); border-color:rgba(155,237,187,.16); }
+    .tool-icon { font-size:17px; line-height:1; }
+    .tool-main { min-width:94px; min-height:53px; padding:0 16px; border:1px solid rgba(176,255,208,.42); border-radius:15px; color:#05130c; font-size:11px; font-weight:760; letter-spacing:.04em; background:linear-gradient(135deg,#b3f4c9,#60cb8b 58%,#339968); box-shadow:0 5px 24px rgba(70,197,123,.20),inset 0 1px rgba(255,255,255,.56); }
+    .tool-main:active { transform:scale(.97); }
+    .footnote { text-align:center; font-size:9px; letter-spacing:.06em; color:rgba(231,241,235,.43); text-shadow:0 1px 6px #000; }
+    .panel { position:absolute; z-index:8; left:12px; right:12px; bottom:calc(var(--safe-bottom) + 90px); max-width:520px; margin:auto; padding:17px; border:1px solid rgba(222,255,235,.17); border-radius:23px; background:rgba(5,12,12,.91); backdrop-filter:blur(28px); -webkit-backdrop-filter:blur(28px); box-shadow:0 20px 70px rgba(0,0,0,.48); transform:translateY(14px); opacity:0; visibility:hidden; transition:.22s ease; }
+    .panel.open { transform:translateY(0);opacity:1;visibility:visible; }
+    .panel-head { display:flex;align-items:center;justify-content:space-between;margin-bottom:5px; }
+    .panel-title { font-size:14px;font-weight:720;letter-spacing:.02em; }
+    .panel-kicker { font-size:9px;color:var(--muted);letter-spacing:.13em;margin-top:4px; }
+    .close { width:31px;height:31px;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.04);font-size:17px;color:var(--muted); }
+    .slider-row { display:grid;grid-template-columns:79px 1fr 39px;gap:10px;align-items:center;margin:17px 0 13px; }
+    .slider-name { font-size:11px;color:rgba(242,249,245,.88); }
+    .slider-name small { display:block;color:var(--muted);font-size:9px;margin-top:3px; }
+    input[type=range] { width:100%;height:22px;margin:0;accent-color:#8de5ad; }
+    .slider-val { text-align:right;font-size:11px;font-variant-numeric:tabular-nums;color:rgba(242,249,245,.82); }
+    .panel-actions { display:flex;gap:8px;margin-top:15px; }
+    .secondary { flex:1;min-height:42px;border:1px solid var(--line);border-radius:13px;background:rgba(255,255,255,.045);font-size:10px;font-weight:650; }
+    .panel-note { margin-top:12px;color:rgba(222,237,228,.49);font-size:9px;line-height:1.5; }
+    .intro,.modal { position:absolute;z-index:20;inset:0;display:flex;align-items:center;justify-content:center;padding:26px;background:radial-gradient(ellipse at 50% 34%,rgba(31,73,53,.45),rgba(3,8,8,.96) 66%);transition:opacity .4s,visibility .4s; }
+    .intro.gone { opacity:0;visibility:hidden;pointer-events:none; }
+    .intro-card { width:min(100%,390px);text-align:center; }
+    .intro-orb { position:relative;width:94px;height:94px;margin:0 auto 24px;border-radius:50%;background:radial-gradient(circle at 36% 28%,#f1fff4 0,#b3f5cb 9%,#5bc98b 27%,rgba(36,117,79,.56) 53%,rgba(15,54,41,.04) 73%);box-shadow:0 0 65px rgba(100,224,150,.25); }
+    .intro-orb:before,.intro-orb:after { content:"";position:absolute;inset:-13px;border:1px solid rgba(162,247,189,.24);border-radius:50%;transform:rotate(28deg) scaleY(.57); }
+    .intro-orb:after { transform:rotate(-35deg) scaleY(.57); }
+    .eyebrow { color:#9bd9b0;font-size:9px;font-weight:700;letter-spacing:.24em;margin-bottom:10px; }
+    h1 { margin:0;font-size:31px;letter-spacing:-.055em;font-weight:720; }
+    .intro-copy { max-width:315px;margin:12px auto 23px;color:rgba(229,241,233,.67);font-size:12px;line-height:1.65; }
+    .intro-actions { display:grid;gap:9px; }
+    .start { min-height:52px;border:1px solid rgba(174,255,201,.45);border-radius:15px;background:linear-gradient(135deg,#b6f6c9,#55c481);color:#06140b;font-size:12px;font-weight:760; }
+    .demo { min-height:49px;border:1px solid rgba(235,255,243,.18);border-radius:15px;background:rgba(255,255,255,.055);font-size:11px;font-weight:650; }
+    .disclaimer { max-width:310px;margin:16px auto 0;color:rgba(219,232,223,.39);font-size:9px;line-height:1.55; }
+    .modal { z-index:30;opacity:0;visibility:hidden;background:rgba(2,7,7,.79);backdrop-filter:blur(15px);-webkit-backdrop-filter:blur(15px); }
+    .modal.open { opacity:1;visibility:visible; }
+    .modal-card { width:min(100%,420px);max-height:78vh;overflow:auto;padding:20px;border:1px solid var(--line);border-radius:22px;background:#0a1512;box-shadow:0 22px 70px rgba(0,0,0,.55); }
+    .modal-card h2 { margin:0 0 12px;font-size:18px; }
+    .modal-card p { color:rgba(230,241,234,.69);font-size:12px;line-height:1.65;margin:9px 0; }
+    .modal-card strong { color:#effaf2; }
+    .modal-close { width:100%;min-height:43px;margin-top:12px;border:1px solid var(--line);border-radius:13px;background:rgba(255,255,255,.05);font-size:11px;font-weight:650; }
+    #toast { position:absolute;z-index:40;top:calc(var(--safe-top) + 68px);left:50%;transform:translateX(-50%);max-width:calc(100% - 32px);padding:10px 14px;border:1px solid var(--line);border-radius:999px;background:rgba(4,11,10,.88);backdrop-filter:blur(18px);font-size:10px;color:#edf8f0;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .22s; }
+    #toast.show { opacity:1; }
+    @media (min-width:700px) { .top{left:24px;right:24px;top:20px}.bottom{left:50%;right:auto;transform:translateX(-50%);width:min(600px,calc(100% - 32px));bottom:22px}.panel{bottom:112px}.side-readout{left:25px}.tool{min-width:67px}.tool-main{min-width:115px} }
+    @media (max-height:650px) { .side-readout{top:45%;gap:5px}.readout-item{padding:6px 8px}.bottom{gap:6px}.footnote{display:none}.panel{bottom:82px;padding:13px}.slider-row{margin:11px 0 8px} }
+    @media (prefers-reduced-motion:reduce) { *,*:before,*:after{animation-duration:.01ms!important;transition-duration:.01ms!important} }
+  </style>
+</head>
+<body>
+  <main id="scene" aria-label="Wizualny symulator energii">
+    <video id="camera" autoplay muted playsinline></video>
+    <canvas id="clouds"></canvas>
+    <div class="room-grain"></div><div class="shade"></div><div class="scanline" id="scanline"></div>
+
+    <header class="top">
+      <div class="brand"><div class="brand-mark"></div><div><div class="brand-name">ENERGIA</div><div class="brand-sub">WIZJER POLA · V2.0</div></div></div>
+      <div class="status"><span class="status-dot"></span><span id="modeLabel">TRYB DEMO</span></div>
+    </header>
+
+    <aside class="side-readout" aria-label="Symulowane proporcje energii">
+      <div class="readout-item"><span class="readout-dot" style="background:var(--green);box-shadow:0 0 10px var(--green)"></span><div><div class="readout-label">ZIELONA</div><div class="readout-value" id="greenValue">54%</div></div></div>
+      <div class="readout-item"><span class="readout-dot" style="background:var(--red);box-shadow:0 0 10px var(--red)"></span><div><div class="readout-label">CZERWONA</div><div class="readout-value" id="redValue">18%</div></div></div>
+      <div class="readout-item"><span class="readout-dot" style="background:var(--gray);box-shadow:0 0 10px var(--gray)"></span><div><div class="readout-label">SZARA</div><div class="readout-value" id="grayValue">28%</div></div></div>
+    </aside>
+
+    <div class="bottom">
+      <div class="mixbar" aria-hidden="true"><div id="greenBar" class="mix-seg" style="width:54%;background:var(--green)"></div><div id="redBar" class="mix-seg" style="width:18%;background:var(--red)"></div><div id="grayBar" class="mix-seg" style="width:28%;background:var(--gray)"></div></div>
+      <nav class="dock" aria-label="Sterowanie symulatorem">
+        <div class="dock-group">
+          <button class="tool" id="controlsBtn" aria-label="Ustawienia energii"><span class="tool-icon">◉</span><span>Proporcje</span></button>
+          <button class="tool" id="motionBtn" aria-label="Włącz paralaksę"><span class="tool-icon">⌁</span><span>Paralaksa</span></button>
+        </div>
+        <button class="tool-main" id="scanBtn">⟲ &nbsp; NOWY SKAN</button>
+        <div class="dock-group">
+          <button class="tool" id="pauseBtn" aria-label="Wstrzymaj animację"><span class="tool-icon">Ⅱ</span><span>Stop</span></button>
+          <button class="tool" id="helpBtn" aria-label="Informacje"><span class="tool-icon">ⓘ</span><span>Info</span></button>
+        </div>
+      </nav>
+      <div class="footnote">WIZUALIZACJA KONCEPCJI · NIE JEST POMIAREM FIZYCZNYM</div>
+    </div>
+
+    <section class="panel" id="controlsPanel" aria-label="Ustawienia proporcji">
+      <div class="panel-head"><div><div class="panel-title">Rozkład energii</div><div class="panel-kicker">CAŁKOWITA ILOŚĆ ZAWSZE WYNOSI 100%</div></div><button class="close" id="closeControls" aria-label="Zamknij">×</button></div>
+      <div class="slider-row"><div class="slider-name">Zielona<small>stan pozytywny</small></div><input id="greenSlider" type="range" min="0" max="100" value="54"><output class="slider-val" id="greenOut">54%</output></div>
+      <div class="slider-row"><div class="slider-name">Czerwona<small>stan negatywny</small></div><input id="redSlider" type="range" min="0" max="100" value="18"><output class="slider-val" id="redOut">18%</output></div>
+      <div class="slider-row"><div class="slider-name">Szara<small>stan neutralny</small></div><input id="graySlider" type="range" min="0" max="100" value="28"><output class="slider-val" id="grayOut">28%</output></div>
+      <div class="panel-actions"><button class="secondary" id="balancedBtn">Przywróć 54 / 18 / 28</button><button class="secondary" id="shuffleBtn">Losuj proporcje</button></div>
+      <div class="panel-note">Zmiana suwaków przesuwa umowną część całkowitej energii między trzema stanami. Wartości są ustawieniami symulacji, nie wynikiem analizy kamery.</div>
+    </section>
+
+    <section class="intro" id="intro">
+      <div class="intro-card">
+        <div class="intro-orb"></div>
+        <div class="eyebrow">EKSPERYMENTALNA WIZUALIZACJA</div>
+        <h1>Wizjer energii</h1>
+        <p class="intro-copy">Skieruj aparat na pomieszczenie i zobacz symboliczną, animowaną mapę trzech stanów energii. Obłoki poruszają się w przestrzeni ekranu, tworząc efekt przestrzennego pola.</p>
+        <div class="intro-actions">
+          <button class="start" id="cameraStart">URUCHOM APARAT</button>
+          <button class="demo" id="demoStart">ZOBACZ TRYB DEMO</button>
+        </div>
+        <p class="disclaimer">To artystyczna symulacja Twojej koncepcji. Aparat nie wykrywa ani nie mierzy energii; obraz z kamery jest wyświetlany lokalnie i nie jest wysyłany na serwer.</p>
+      </div>
+    </section>
+
+    <section class="modal" id="infoModal" role="dialog" aria-modal="true" aria-label="Informacje o symulatorze">
+      <div class="modal-card">
+        <div class="eyebrow">ENERGIA · WIZJER POLA</div>
+        <h2>Jak działa symulator?</h2>
+        <p><strong>Obraz z aparatu</strong> jest wyłącznie tłem dla efektów. Strona nie analizuje obrazu, nie rozpoznaje obiektów i nie wykrywa żadnego pola energetycznego.</p>
+        <p><strong>Obłoki</strong> są proceduralną animacją z miękką teksturą, kilkoma warstwami mgły i powolnym ruchem. Ich rozkład jest losowy albo ustawiany suwakami.</p>
+        <p><strong>Proporcje</strong> zawsze sumują się do 100%, zgodnie z założeniem symulatora o stałej całkowitej ilości energii.</p>
+        <p><strong>Paralaksa</strong> korzysta z czujników ruchu iOS, jeśli Safari udostępni taką możliwość. To delikatne przesunięcie efektu, a nie prawdziwe śledzenie przestrzeni AR.</p>
+        <button class="modal-close" id="closeInfo">Rozumiem</button>
+      </div>
+    </section>
+    <div id="toast" role="status" aria-live="polite"></div>
+  </main>
+
+  <script>
+  (() => {
+    'use strict';
+    const $ = (id) => document.getElementById(id);
+    const video = $('camera');
+    const canvas = $('clouds');
+    const ctx = canvas.getContext('2d', { alpha: true });
+    const intro = $('intro');
+    const toastEl = $('toast');
+    const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let cameraStream = null;
+    let running = true;
+    let cameraOn = false;
+    let toastTimer = 0;
+    let width = 0, height = 0, dpr = 1;
+    let frame = 0;
+    let tiltX = 0, tiltY = 0, targetTiltX = 0, targetTiltY = 0, motionEnabled = false;
+    let ratios = { green: 54, red: 18, gray: 28 };
+    const palettes = {
+      green: { rgb:[116,238,166], glow:[80,226,143], texture:null },
+      red: { rgb:[243,111,116], glow:[226,82,91], texture:null },
+      gray: { rgb:[194,211,218], glow:[178,202,210], texture:null }
+    };
+    let fields = [];
+
+    function toast(message) {
+      toastEl.textContent = message;
+      toastEl.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2600);
+    }
+    function hash2(x, y, seed) {
+      const n = Math.sin(x * 127.1 + y * 311.7 + seed * 74.7) * 43758.5453123;
+      return n - Math.floor(n);
+    }
+    const smooth = (t) => t*t*(3-2*t);
+    function valueNoise(x, y, seed) {
+      const ix = Math.floor(x), iy = Math.floor(y), fx = smooth(x-ix), fy = smooth(y-iy);
+      const a = hash2(ix,iy,seed), b = hash2(ix+1,iy,seed), c = hash2(ix,iy+1,seed), d = hash2(ix+1,iy+1,seed);
+      return (a+(b-a)*fx) + ((c+(d-c)*fx)-(a+(b-a)*fx))*fy;
+    }
+    function fbm(x,y,seed) {
+      let sum=0, amp=.56, norm=0, scale=1;
+      for(let i=0;i<5;i++) { sum += valueNoise(x*scale,y*scale,seed+i*17)*amp; norm+=amp; amp*=.52; scale*=2.03; }
+      return sum/norm;
+    }
+    function makeCloudTexture(key, seed) {
+      const size=240, c=document.createElement('canvas'); c.width=c.height=size;
+      const g=c.getContext('2d'); const img=g.createImageData(size,size); const p=palettes[key].rgb;
+      for(let y=0;y<size;y++) for(let x=0;x<size;x++) {
+        const nx=(x/(size-1)-.5)*2, ny=(y/(size-1)-.5)*2;
+        const r=Math.sqrt(nx*nx*0.84+ny*ny*1.12);
+        const n=fbm(x/size*5.4+2.1,y/size*5.4+3.7,seed);
+        const detail=fbm(x/size*12.5+8,y/size*12.5+1.4,seed+31);
+        const edge=Math.max(0,Math.min(1,(1.12-r)*1.75));
+        const wisps=Math.max(0,Math.min(1,(n*.72+detail*.28-.27)*2.15));
+        const alpha=Math.pow(edge,1.42)*(.035+.48*wisps);
+        const idx=(y*size+x)*4;
+        const tint=.84+n*.2;
+        img.data[idx]=Math.min(255,p[0]*tint);
+        img.data[idx+1]=Math.min(255,p[1]*tint);
+        img.data[idx+2]=Math.min(255,p[2]*tint);
+        img.data[idx+3]=Math.round(alpha*255);
+      }
+      g.putImageData(img,0,0);
+      return c;
+    }
+    function rand(min,max) { return min+Math.random()*(max-min); }
+    function buildFields() {
+      fields=[];
+      const keys=['green','red','gray'];
+      keys.forEach((key,index) => {
+        const amount=ratios[key]/100;
+        const count=Math.max(1,Math.round(1+amount*2.1));
+        const palette=palettes[key];
+        for(let i=0;i<count;i++) {
+          const cx=rand(.13,.87), cy=rand(.18,.79);
+          const spread=(.13+amount*.22)*rand(.72,1.16);
+          const puffCount=Math.round(7+amount*15);
+          const puffs=[];
+          for(let j=0;j<puffCount;j++) {
+            const angle=rand(0,Math.PI*2), radius=Math.sqrt(Math.random())*spread;
+            puffs.push({
+              x:Math.cos(angle)*radius*rand(.7,1.3), y:Math.sin(angle)*radius*rand(.55,1.0),
+              sx:rand(.22,.53)*spread*4.2, sy:rand(.20,.46)*spread*4.2,
+              phase:rand(0,Math.PI*2), drift:rand(.0015,.008), rot:rand(-.8,.8),
+              alpha:rand(.24,.66)
+            });
+          }
+          fields.push({key,cx,cy,spread,puffs,phase:rand(0,Math.PI*2),amount,alpha:.45+amount*.6});
+        }
+      });
+    }
+    function resize() {
+      width=window.innerWidth; height=window.innerHeight; dpr=Math.min(window.devicePixelRatio||1,1.55);
+      canvas.width=Math.round(width*dpr); canvas.height=Math.round(height*dpr);
+      canvas.style.width=width+'px'; canvas.style.height=height+'px';
+      ctx.setTransform(dpr,0,0,dpr,0,0);
+      buildFields();
+    }
+    function drawFog(field,time) {
+      const palette=palettes[field.key];
+      const color=palette.glow;
+      const cx=field.cx*width + Math.sin(time*.00016+field.phase)*width*.014 + tiltX*width*.012;
+      const cy=field.cy*height + Math.cos(time*.00013+field.phase)*height*.012 + tiltY*height*.012;
+      const radius=field.spread*Math.min(width,height)*1.9;
+      const glow=ctx.createRadialGradient(cx,cy,0,cx,cy,radius*1.28);
+      glow.addColorStop(0,`rgba(${color[0]},${color[1]},${color[2]},${.09+field.amount*.09})`);
+      glow.addColorStop(.44,`rgba(${color[0]},${color[1]},${color[2]},${.035+field.amount*.035})`);
+      glow.addColorStop(1,`rgba(${color[0]},${color[1]},${color[2]},0)`);
+      ctx.fillStyle=glow; ctx.fillRect(cx-radius*1.3,cy-radius*1.3,radius*2.6,radius*2.6);
+      ctx.save(); ctx.globalCompositeOperation='screen';
+      const texture=palette.texture;
+      field.puffs.forEach((p,index) => {
+        const wave=Math.sin(time*p.drift+p.phase);
+        const wave2=Math.cos(time*p.drift*.72+p.phase*1.7);
+        const x=cx+(p.x+wave*field.spread*.20)*Math.min(width,height)*1.45;
+        const y=cy+(p.y+wave2*field.spread*.17)*Math.min(width,height)*1.45;
+        const scale=Math.min(width,height)*field.spread;
+        const w=scale*p.sx*2.2, h=scale*p.sy*2.4;
+        ctx.globalAlpha=p.alpha*field.alpha*(.84+Math.sin(time*.00045+p.phase)*.12);
+        ctx.translate(x,y); ctx.rotate(p.rot+Math.sin(time*.00012+p.phase)*.06);
+        ctx.drawImage(texture,-w/2,-h/2,w,h);
+        ctx.setTransform(dpr,0,0,dpr,0,0);
+      });
+      ctx.restore();
+    }
+    function render(time) {
+      requestAnimationFrame(render);
+      if(!running || !ctx) return;
+      frame++;
+      if(frame%2===0) {
+        ctx.clearRect(0,0,width,height);
+        fields.forEach(field=>drawFog(field,time));
+        // A few very soft filaments add scale and a sense of flowing volume.
+        ctx.save(); ctx.globalCompositeOperation='screen';
+        fields.forEach((field,idx)=>{
+          const c=palettes[field.key].glow; const x=field.cx*width+tiltX*width*.01; const y=field.cy*height+tiltY*height*.01;
+          for(let j=0;j<3;j++) {
+            const t=time*.00012+j*2.1+field.phase;
+            const x1=x+Math.sin(t)*field.spread*width*.42, y1=y+Math.cos(t*.8)*field.spread*height*.28;
+            const x2=x+Math.cos(t*1.2)*field.spread*width*.65, y2=y+Math.sin(t*.9)*field.spread*height*.34;
+            const grad=ctx.createLinearGradient(x1,y1,x2,y2);
+            grad.addColorStop(0,`rgba(${c[0]},${c[1]},${c[2]},0)`); grad.addColorStop(.5,`rgba(${c[0]},${c[1]},${c[2]},.035)`); grad.addColorStop(1,`rgba(${c[0]},${c[1]},${c[2]},0)`);
+            ctx.beginPath(); ctx.moveTo(x1,y1); ctx.bezierCurveTo(x1+25*Math.sin(t),y1-30,x2-25,y2+35*Math.cos(t),x2,y2); ctx.strokeStyle=grad; ctx.lineWidth=rand(8,20); ctx.stroke();
+          }
+        });
+        ctx.restore();
+      }
+    }
+    function updateLabels() {
+      ['green','red','gray'].forEach(key=>{
+        $(key+'Value').textContent=ratios[key]+'%';
+        $(key+'Out').textContent=ratios[key]+'%';
+        $(key+'Slider').value=ratios[key];
+        $(key+'Bar').style.width=ratios[key]+'%';
+      });
+    }
+    function setRatios(next, rebuild=true) {
+      const keys=['green','red','gray'];
+      const total=keys.reduce((s,k)=>s+Math.max(0,Number(next[k])||0),0)||1;
+      const scaled=keys.map(k=>Math.max(0,Number(next[k])||0)*100/total);
+      const rounded=scaled.map(Math.floor); let remaining=100-rounded.reduce((a,b)=>a+b,0);
+      const fractions=scaled.map((v,i)=>({i,f:v-Math.floor(v)})).sort((a,b)=>b.f-a.f);
+      for(let i=0;i<remaining;i++) rounded[fractions[i%3].i]++;
+      ratios={green:rounded[0],red:rounded[1],gray:rounded[2]};
+      updateLabels(); if(rebuild) buildFields();
+    }
+    function adjustRatio(key,value) {
+      const others=['green','red','gray'].filter(k=>k!==key);
+      const chosen=Math.max(0,Math.min(100,Number(value)));
+      const rest=100-chosen, old=ratios[others[0]]+ratios[others[1]];
+      const first=old>0?rest*ratios[others[0]]/old:rest/2;
+      const second=rest-first;
+      const next={...ratios,[key]:chosen,[others[0]]:first,[others[1]]:second};
+      setRatios(next);
+    }
+    function randomMix() {
+      const a=rand(10,80), b=rand(5,65), c=rand(5,65);
+      setRatios({green:a,red:b,gray:c});
+    }
+    function rescan() {
+      randomMix();
+      const line=$('scanline'); line.classList.remove('run'); void line.offsetWidth; line.classList.add('run');
+      $('scanBtn').textContent='✓  NOWY ROZKŁAD';
+      setTimeout(()=>$('scanBtn').textContent='⟲  NOWY SKAN',1500);
+      toast('Wygenerowano nowy rozkład symulacji');
+    }
+    function closePanel() { $('controlsPanel').classList.remove('open'); $('controlsBtn').classList.remove('active'); }
+    function openDemo() {
+      stopCamera();
+      $('modeLabel').textContent='TRYB DEMO';
+      intro.classList.add('gone');
+      toast('Tryb demonstracyjny — bez aparatu');
+    }
+    async function startCamera() {
+      if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        toast('Aparat wymaga Safari i bezpiecznego adresu HTTPS'); return;
+      }
+      $('cameraStart').textContent='PROSZĘ O DOSTĘP…';
+      try {
+        cameraStream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080},frameRate:{ideal:30,max:30}}});
+        video.srcObject=cameraStream;
+        await video.play();
+        video.classList.add('live'); cameraOn=true;
+        $('modeLabel').textContent='APARAT AKTYWNY';
+        intro.classList.add('gone');
+        toast('Aparat aktywny — obraz pozostaje na urządzeniu');
+      } catch(error) {
+        console.error(error);
+        let msg='Nie udało się uruchomić aparatu';
+        if(error && (error.name==='NotAllowedError'||error.name==='PermissionDeniedError')) msg='Brak zgody na aparat. Zezwól Safari na dostęp do kamery.';
+        else if(error && error.name==='NotFoundError') msg='Nie znaleziono aparatu.';
+        toast(msg); $('cameraStart').textContent='SPRÓBUJ PONOWNIE';
+      }
+    }
+    function stopCamera() {
+      if(cameraStream) cameraStream.getTracks().forEach(track=>track.stop());
+      cameraStream=null; video.srcObject=null; video.classList.remove('live'); cameraOn=false;
+    }
+    async function enableMotion() {
+      try {
+        if(typeof DeviceOrientationEvent!=='undefined' && typeof DeviceOrientationEvent.requestPermission==='function') {
+          const permission=await DeviceOrientationEvent.requestPermission();
+          if(permission!=='granted') { toast('Nie przyznano dostępu do ruchu'); return; }
+        }
+        window.addEventListener('deviceorientation',onOrientation,true);
+        motionEnabled=true; $('motionBtn').classList.add('active'); toast('Paralaksa włączona');
+      } catch(e) { toast('Ten browser nie udostępnia czujnika ruchu'); }
+    }
+    function onOrientation(event) {
+      const gamma=Math.max(-25,Math.min(25,event.gamma||0));
+      const beta=Math.max(-25,Math.min(25,(event.beta||0)-35));
+      targetTiltX=gamma/25; targetTiltY=beta/25;
+      tiltX+=(targetTiltX-tiltX)*.06; tiltY+=(targetTiltY-tiltY)*.06;
+    }
+
+    // Prepare procedural textures once. They are decorative shader-like sprites, not measurements.
+    palettes.green.texture=makeCloudTexture('green',11);
+    palettes.red.texture=makeCloudTexture('red',37);
+    palettes.gray.texture=makeCloudTexture('gray',73);
+    resize(); updateLabels(); requestAnimationFrame(render);
+
+    $('cameraStart').addEventListener('click',startCamera);
+    $('demoStart').addEventListener('click',openDemo);
+    $('scanBtn').addEventListener('click',rescan);
+    $('controlsBtn').addEventListener('click',()=>{ const p=$('controlsPanel'); p.classList.toggle('open'); $('controlsBtn').classList.toggle('active',p.classList.contains('open')); });
+    $('closeControls').addEventListener('click',closePanel);
+    ['green','red','gray'].forEach(key=>$(key+'Slider').addEventListener('input',e=>adjustRatio(key,e.target.value)));
+    $('balancedBtn').addEventListener('click',()=>setRatios({green:54,red:18,gray:28}));
+    $('shuffleBtn').addEventListener('click',randomMix);
+    $('pauseBtn').addEventListener('click',()=>{running=!running;$('pauseBtn').innerHTML=running?'<span class="tool-icon">Ⅱ</span><span>Stop</span>':'<span class="tool-icon">▶</span><span>Start</span>';toast(running?'Wznowiono animację':'Wstrzymano animację');});
+    $('motionBtn').addEventListener('click',()=>{ if(motionEnabled){window.removeEventListener('deviceorientation',onOrientation,true);motionEnabled=false;$('motionBtn').classList.remove('active');targetTiltX=targetTiltY=0;toast('Paralaksa wyłączona');} else enableMotion(); });
+    $('helpBtn').addEventListener('click',()=>$('infoModal').classList.add('open'));
+    $('closeInfo').addEventListener('click',()=>$('infoModal').classList.remove('open'));
+    $('infoModal').addEventListener('click',e=>{if(e.target===$('infoModal')) $('infoModal').classList.remove('open');});
+    window.addEventListener('resize',resize);
+    window.addEventListener('pagehide',stopCamera);
+    document.addEventListener('visibilitychange',()=>{ if(document.hidden) { /* leave camera stream active only while the page stays open */ } });
+    if('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+      window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(err=>console.warn('SW:',err)));
+    }
+  })();
+  </script>
+</body>
+</html>
